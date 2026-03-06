@@ -46,6 +46,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
+	libp2pmetrics "github.com/libp2p/go-libp2p/core/metrics"
 	"github.com/libp2p/go-libp2p/core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
@@ -74,8 +75,9 @@ import (
 const loggerName = "libp2p"
 
 var (
-	_ p2p.Service      = (*Service)(nil)
-	_ p2p.DebugService = (*Service)(nil)
+	_ p2p.Service           = (*Service)(nil)
+	_ p2p.DebugService      = (*Service)(nil)
+	_ p2p.NetworkStatistics = (*Service)(nil)
 
 	// reachabilityOverridePublic overrides autonat to simply report
 	// public reachability status, it is set in the makefile.
@@ -124,6 +126,7 @@ type Service struct {
 	enableWS           bool
 	autoTLSCertManager autoTLSCertManager
 	zapLogger          *zap.Logger
+	bandwidthCounter   *libp2pmetrics.BandwidthCounter
 }
 
 type lightnodes interface {
@@ -376,6 +379,8 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		logger.Info("AutoTLS certificate manager initialized")
 	}
 
+	bwc := libp2pmetrics.NewBandwidthCounter()
+
 	opts := []libp2p.Option{
 		libp2p.ListenAddrStrings(listenAddrs...),
 		security,
@@ -383,6 +388,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		libp2p.Peerstore(libp2pPeerstore),
 		libp2p.UserAgent(userAgent()),
 		libp2p.ResourceManager(rm),
+		libp2p.BandwidthReporter(bwc),
 	}
 
 	if o.NATAddr == "" && o.NATWSSAddr == "" {
@@ -546,6 +552,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		enableWS:           o.EnableWS,
 		autoTLSCertManager: certManager,
 		zapLogger:          zapLogger,
+		bandwidthCounter:   bwc,
 	}
 
 	peerRegistry.setDisconnecter(s)

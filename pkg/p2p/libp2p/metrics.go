@@ -6,6 +6,8 @@ package libp2p
 
 import (
 	m "github.com/ethersphere/bee/v2/pkg/metrics"
+	"github.com/ethersphere/bee/v2/pkg/p2p"
+	libp2pmetrics "github.com/libp2p/go-libp2p/core/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -121,7 +123,10 @@ func newMetrics() metrics {
 }
 
 func (s *Service) Metrics() []prometheus.Collector {
-	return append(m.PrometheusCollectorsFromFields(s.metrics), s.handshakeService.Metrics()...)
+	return append(
+		m.PrometheusCollectorsFromFields(s.metrics),
+		append(s.handshakeService.Metrics(), newBandwidthCollector(s.bandwidthCounter))...,
+	)
 }
 
 // StatusMetrics exposes metrics that are exposed on the status protocol.
@@ -129,4 +134,73 @@ func (s *Service) StatusMetrics() []prometheus.Collector {
 	return []prometheus.Collector{
 		s.metrics.HeadersExchangeDuration,
 	}
+}
+
+// bandwidthCollector is a prometheus.Collector that exposes libp2p bandwidth
+// statistics (total bytes in/out and current rates in/out) sampled on each scrape.
+type bandwidthCollector struct {
+	bwc      *libp2pmetrics.BandwidthCounter
+	totalIn  *prometheus.Desc
+	totalOut *prometheus.Desc
+	rateIn   *prometheus.Desc
+	rateOut  *prometheus.Desc
+}
+
+func newBandwidthCollector(bwc *libp2pmetrics.BandwidthCounter) *bandwidthCollector {
+	labels := []string{}
+	return &bandwidthCollector{
+		bwc: bwc,
+		totalIn: prometheus.NewDesc(
+			prometheus.BuildFQName(m.Namespace, "libp2p", "bandwidth_total_in_bytes"),
+			"Total bytes received over all libp2p connections.",
+			labels, nil,
+		),
+		totalOut: prometheus.NewDesc(
+			prometheus.BuildFQName(m.Namespace, "libp2p", "bandwidth_total_out_bytes"),
+			"Total bytes sent over all libp2p connections.",
+			labels, nil,
+		),
+		rateIn: prometheus.NewDesc(
+			prometheus.BuildFQName(m.Namespace, "libp2p", "bandwidth_rate_in_bytes_per_second"),
+			"Current inbound bandwidth rate in bytes per second.",
+			labels, nil,
+		),
+		rateOut: prometheus.NewDesc(
+			prometheus.BuildFQName(m.Namespace, "libp2p", "bandwidth_rate_out_bytes_per_second"),
+			"Current outbound bandwidth rate in bytes per second.",
+			labels, nil,
+		),
+	}
+}
+
+func (b *bandwidthCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- b.totalIn
+	ch <- b.totalOut
+	ch <- b.rateIn
+	ch <- b.rateOut
+}
+
+func (b *bandwidthCollector) Collect(ch chan<- prometheus.Metric) {
+	stats := b.bwc.GetBandwidthTotals()
+	ch <- prometheus.MustNewConstMetric(b.totalIn, prometheus.CounterValue, float64(stats.TotalIn))
+	ch <- prometheus.MustNewConstMetric(b.totalOut, prometheus.CounterValue, float64(stats.TotalOut))
+	ch <- prometheus.MustNewConstMetric(b.rateIn, prometheus.GaugeValue, stats.RateIn)
+	ch <- prometheus.MustNewConstMetric(b.rateOut, prometheus.GaugeValue, stats.RateOut)
+}
+
+// GetBandwidthStats returns the current bandwidth statistics for all libp2p connections.
+// TotalIn/TotalOut are cumulative byte counts; RateIn/RateOut are bytes per second.
+func (s *Service) GetBandwidthStats() p2p.BandwidthStats {
+	stats := s.bandwidthCounter.GetBandwidthTotals()
+	return p2p.BandwidthStats{
+		TotalIn:  stats.TotalIn,
+		TotalOut: stats.TotalOut,
+		RateIn:   stats.RateIn,
+		RateOut:  stats.RateOut,
+	}
+}
+
+// ClearBandwidthStats resets all bandwidth statistics counters.
+func (s *Service) ClearBandwidthStats() {
+	s.bandwidthCounter.Reset()
 }

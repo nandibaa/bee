@@ -57,6 +57,24 @@ const (
 
 var ErrNetworkUnavailable = errors.New("network unavailable")
 
+// BandwidthStats contains bandwidth usage statistics.
+type BandwidthStats struct {
+	// TotalIn is the total number of bytes received.
+	TotalIn int64
+	// TotalOut is the total number of bytes sent.
+	TotalOut int64
+	// RateIn is the current inbound bandwidth rate in bytes per second.
+	RateIn float64
+	// RateOut is the current outbound bandwidth rate in bytes per second.
+	RateOut float64
+}
+
+// NetworkStatistics can report bandwidth usage statistics.
+type NetworkStatistics interface {
+	GetBandwidthStats() BandwidthStats
+	ClearBandwidthStats()
+}
+
 // Service provides methods to handle p2p Peers and Protocols.
 type Service interface {
 	AddProtocol(ProtocolSpec) error
