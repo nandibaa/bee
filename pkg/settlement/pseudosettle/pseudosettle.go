@@ -331,12 +331,20 @@ func (s *Service) Pay(ctx context.Context, peer swarm.Address, amount *big.Int) 
 	experienceDifferenceRecent := paymentAck.Timestamp - checkTime/1000
 
 	if experienceDifferenceRecent < -2 || experienceDifferenceRecent > 2 {
+		s.logger.Debug("time sync failure", "peer", peer,
+			"peer_timestamp", paymentAck.Timestamp,
+			"local_check_time", checkTime/1000,
+			"diff_seconds", experienceDifferenceRecent)
 		s.accounting.NotifyRefreshmentSent(peer, nil, nil, 0, 0, ErrTimeOutOfSyncRecent)
 		return
 	}
 
 	experienceDifferenceInterval := experiencedInterval - allegedInterval
 	if experienceDifferenceInterval < -3 || experienceDifferenceInterval > 3 {
+		s.logger.Debug("time sync interval failure", "peer", peer,
+			"peer_timestamp", paymentAck.Timestamp,
+			"local_check_time", checkTime/1000,
+			"diff_seconds", experienceDifferenceInterval)
 		s.accounting.NotifyRefreshmentSent(peer, nil, nil, 0, 0, ErrTimeOutOfSyncInterval)
 		return
 	}
