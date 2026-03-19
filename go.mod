@@ -1,4 +1,4 @@
-module github.com/nandibaa/bee/v2
+module github.com/ethersphere/bee/v2
 
 go 1.25
 
@@ -12,7 +12,6 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/ethersphere/batch-archive v0.0.5
-	github.com/ethersphere/bee/v2 v2.7.0
 	github.com/ethersphere/go-price-oracle-abi v0.6.9
 	github.com/ethersphere/go-storage-incentives-abi v0.9.4
 	github.com/ethersphere/go-sw3-abi v0.6.9
@@ -60,6 +59,8 @@ require (
 	resenje.org/singleflight v0.4.0
 	resenje.org/web v0.4.3
 )
+
+require github.com/codahale/hdrhistogram v0.0.0-00010101000000-000000000000 // indirect
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
